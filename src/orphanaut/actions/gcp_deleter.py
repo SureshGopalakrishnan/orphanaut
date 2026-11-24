@@ -71,11 +71,18 @@ def delete_gcp_resource(
                     "storage", "v1", credentials=session.credentials, cache_discovery=False
                 )
                 bucket = resource.extra["bucket_name"]
-                request = storage.objects().list(bucket=bucket)
+                # versions=True also lists noncurrent versions, which block the
+                # bucket delete when object versioning is on.
+                request = storage.objects().list(bucket=bucket, versions=True)
                 while request is not None:
                     response = request.execute()
                     for item in response.get("items", []):
-                        storage.objects().delete(bucket=bucket, object=item["name"]).execute()
+                        generation = (
+                            {"generation": item["generation"]} if "generation" in item else {}
+                        )
+                        storage.objects().delete(
+                            bucket=bucket, object=item["name"], **generation
+                        ).execute()
                     request = storage.objects().list_next(
                         previous_request=request,
                         previous_response=response,

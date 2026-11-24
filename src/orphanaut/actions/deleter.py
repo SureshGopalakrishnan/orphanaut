@@ -226,17 +226,24 @@ def _empty_and_delete_bucket(session: boto3.Session, bucket_name: str) -> None:
 
 def _delete_hosted_zone(session: boto3.Session, hosted_zone_id: str) -> None:
     route53 = session.client("route53")
-    records = route53.list_resource_record_sets(HostedZoneId=hosted_zone_id)
-    changes = []
-    for record in records.get("ResourceRecordSets", []):
-        if record["Type"] in ("NS", "SOA"):
-            continue
-        changes.append({"Action": "DELETE", "ResourceRecordSet": record})
+    zone_name = route53.get_hosted_zone(Id=hosted_zone_id)["HostedZone"]["Name"]
 
-    if changes:
+    changes = []
+    for page in route53.get_paginator("list_resource_record_sets").paginate(
+        HostedZoneId=hosted_zone_id
+    ):
+        for record in page.get("ResourceRecordSets", []):
+            # Only the zone's own NS and SOA records go away with the zone.
+            # NS records that delegate a subdomain must be deleted first.
+            if record["Type"] in ("NS", "SOA") and record["Name"] == zone_name:
+                continue
+            changes.append({"Action": "DELETE", "ResourceRecordSet": record})
+
+    # Route53 accepts at most 1000 changes per request.
+    for start in range(0, len(changes), 1000):
         route53.change_resource_record_sets(
             HostedZoneId=hosted_zone_id,
-            ChangeBatch={"Changes": changes},
+            ChangeBatch={"Changes": changes[start : start + 1000]},
         )
 
     route53.delete_hosted_zone(Id=hosted_zone_id)
