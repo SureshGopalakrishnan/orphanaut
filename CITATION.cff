@@ -5,8 +5,8 @@ type: software
 authors:
   - given-names: Rajinikanth
     family-names: Vadla
-version: 2.2.0
-date-released: 2026-11-02
+version: 2.2.1
+date-released: 2026-11-25
 license: MIT
 repository-code: "https://github.com/rajinikanthvadla-ai/orphanaut"
 url: "https://rajinikanthvadla-ai.github.io/orphanaut/"
